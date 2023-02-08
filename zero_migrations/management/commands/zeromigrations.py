@@ -1,5 +1,7 @@
 from django.core.management import BaseCommand
 
+from zero_migrations.backup import MigrationBackup
+
 
 class Command(BaseCommand):
     help = "Fake zero migrations"
@@ -8,4 +10,4 @@ class Command(BaseCommand):
         pass
 
     def handle(self, *args, **options):
-        pass
+        MigrationBackup().backup()
