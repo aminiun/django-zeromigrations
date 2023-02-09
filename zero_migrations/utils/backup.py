@@ -1,9 +1,6 @@
 import abc
 from typing import List, NoReturn
 
-from django.apps import apps
-
-from .. import app_settings
 from ..constants import MIGRATION_TABLE_BACKUP_FILE_NAME,\
     MIGRATION_TABLE_BACKUP_DIR_NAME,\
     MIGRATION_FILES_BACKUP_DIR_NAME
@@ -56,15 +53,13 @@ class MigrationsTableBackup(BaseBackup):
 
 class MigrationFilesBackup(BaseBackup):
 
+    def __init__(self, app_name: str):
+        self.app_name = app_name
+        self.app_migrations_dir = AppMigrationsDir(app_name=app_name)
+        self.migrations_backup_dir = BackupDir(MIGRATION_FILES_BACKUP_DIR_NAME, app_name)
+
     def backup(self):
-        for app in apps.get_app_configs():
-            if app.name in app_settings.IGNORE_APPS:
-                continue
+        if not self.app_migrations_dir.has_migration:
+            return
 
-            app_migrations_dir = AppMigrationsDir(app_name=app.name)
-            migrations_backup_dir = BackupDir(MIGRATION_FILES_BACKUP_DIR_NAME, app.name)
-
-            if not app_migrations_dir.has_migration:
-                continue
-
-            app_migrations_dir.copy(destination=migrations_backup_dir.path)
+        self.app_migrations_dir.copy(destination=self.migrations_backup_dir.path)

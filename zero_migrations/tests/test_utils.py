@@ -11,7 +11,7 @@ from django.utils.timezone import now
 from ..apps import ZeroMigrationsConfig
 from ..exceptions import BackupError
 from ..utils import BackupDir
-from ..utils.backup import BackupFile, MigrationsTableBackup, MigrationFilesBackup, AppMigrationsDir
+from ..utils.backup import BackupFile, MigrationsTableBackup, AppMigrationsDir
 from ..utils.restore import MigrationsTableRestore
 
 
