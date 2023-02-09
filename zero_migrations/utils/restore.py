@@ -53,3 +53,4 @@ class MigrationFilesRestore(BaseRestore):
             return
 
         self.migrations_backup_dir.copy(destination=self.app_migrations_dir.path)
+        self.migrations_backup_dir.clear()

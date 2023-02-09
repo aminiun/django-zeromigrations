@@ -1,5 +1,8 @@
+from functools import lru_cache
+
 from django.apps import apps
 from django.core.management import BaseCommand, call_command
+from typing import List
 
 from zero_migrations.app_settings import IGNORE_APPS
 from zero_migrations.utils import BackupDir, AppMigrationsDir
@@ -40,8 +43,8 @@ class Command(BaseCommand):
     def make_backup(self):
         MigrationsTableBackup().backup()
 
-        for app in apps.get_app_configs():
-            MigrationFilesBackup(app_name=app.name).backup()
+        for app in self.get_apps():
+            MigrationFilesBackup(app_name=app).backup()
 
         proceed_perm = input(
             self.style.SUCCESS(
@@ -56,18 +59,14 @@ class Command(BaseCommand):
     def zero_migrations(self):
         try:
             self.stdout.write(self.style.WARNING("Migrate zero each app:"))
-            for app in apps.get_app_configs():
-
-                if app.name in IGNORE_APPS:
-                    continue
-
-                self.stdout.write(self.style.WARNING(f"App name: {app.name}"))
-                call_command("migrate", "--fake", app.name, "zero", force_color=True)
+            for app in self.get_apps():
+                self.stdout.write(self.style.WARNING(f"App name: {app}"))
+                call_command("migrate", "--fake", app, "zero", force_color=True)
 
             self.stdout.write(self.style.WARNING("Removing migrations:"))
-            for app in apps.get_app_configs():
-                AppMigrationsDir(app_name=app.name).clear()
-                self.stdout.write(self.style.SUCCESS(f"Removed migrations of {app.name}"))
+            for app in self.get_apps():
+                AppMigrationsDir(app_name=app).clear()
+                self.stdout.write(self.style.SUCCESS(f"Removed migrations of {app}"))
 
             self.stdout.write(self.style.WARNING("Making migrations:"))
             call_command("makemigrations", force_color=True)
@@ -77,8 +76,7 @@ class Command(BaseCommand):
 
         except Exception as err:
             self.stderr.write(
-                self.style(
-                    f"Process failed because of {err}.\n"
+                self.style.ERROR(
                     f"Process failed because of {err}.\n"
                 )
             )
@@ -100,8 +98,15 @@ class Command(BaseCommand):
             )
         )
         delete_migrations = True if choice == self.DELETE_MIGRATION_FILES else False
-        for app in apps.get_app_configs():
-            migration_files_restore = MigrationFilesRestore(app_name=app.name)
+        for app in self.get_apps():
+            migration_files_restore = MigrationFilesRestore(app_name=app)
             if delete_migrations:
                 migration_files_restore.app_migrations_dir.clear()
             migration_files_restore.restore()
+
+    @lru_cache
+    def get_apps(self) -> List[str]:
+        return [
+            app.name for app in apps.get_app_configs()
+            if app.name not in IGNORE_APPS
+        ]

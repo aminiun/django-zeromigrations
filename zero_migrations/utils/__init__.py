@@ -2,6 +2,7 @@ import abc
 import json
 import os
 from datetime import datetime, date
+from functools import lru_cache
 from pathlib import Path
 from shutil import rmtree, copytree
 
@@ -25,7 +26,10 @@ class BaseDir(abc.ABC):
         copytree(self.path, destination, dirs_exist_ok=True)
 
     def get_files(self) -> List[str]:
-        return os.listdir(self.path)
+        try:
+            return os.listdir(self.path)
+        except FileNotFoundError:
+            return []
 
     @property
     @abc.abstractmethod
@@ -49,6 +53,7 @@ class BackupDir(BaseDir):
         ]
 
     @property
+    @lru_cache
     def path(self) -> Path:
         return self.app_dir_path / self.BACKUP_DIR_NAME / Path(*self._dir_names)
 
@@ -62,7 +67,13 @@ class AppMigrationsDir(BaseDir):
     def __init__(self, app_name: str):
         self.app_name = app_name
 
+    def clear(self) -> NoReturn:
+        for file_name in self.get_files():
+            if file_name != "__init__.py" and file_name.endswith(".py"):
+                os.remove(self.path / file_name)
+
     @property
+    @lru_cache
     def path(self) -> Path:
         return Path(apps.get_app_config(app_label=self.app_name).path) / MIGRATIONS_MODULE_NAME
 
