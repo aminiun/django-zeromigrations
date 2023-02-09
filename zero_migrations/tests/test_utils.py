@@ -7,7 +7,9 @@ from django.db.migrations.recorder import MigrationRecorder
 from django.test import TestCase
 from django.utils.timezone import now
 
-from zero_migrations.backup import BackupFile, MigrationBackup
+from zero_migrations.exceptions import BackupError
+from zero_migrations.utils.backup import BackupFile, MigrationBackup
+from zero_migrations.utils.restore import MigrationRestore
 
 
 class TestBackupFile(TestCase):
@@ -22,31 +24,31 @@ class TestBackupFile(TestCase):
             str(Path(__file__).parent.parent / BackupFile.BACKUP_DIR_NAME / self.test_backup_dir_name)
         )
 
-    @patch("zero_migrations.backup.os.listdir")
+    @patch("zero_migrations.utils.os.listdir")
     def test_latest_revision_without_any_file_in_dir(self, mock_listdir):
         mock_listdir.return_value = []
 
         self.assertIsNone(self.backup_file.latest_revision)
 
-    @patch("zero_migrations.backup.os.listdir")
+    @patch("zero_migrations.utils.os.listdir")
     def test_latest_revision_with_files_in_dir(self, mock_listdir):
         mock_listdir.return_value = ["0001_test.json", "0002_test.json"]
 
         self.assertEqual(str(self.backup_file.latest_revision), "0002_test.json")
 
-    @patch("zero_migrations.backup.os.listdir")
+    @patch("zero_migrations.utils.os.listdir")
     def test_new_revision_without_any_file_in_dir(self, mock_listdir):
         mock_listdir.return_value = []
 
         self.assertEqual(str(self.backup_file.next_revision), f"{BackupFile.REVISION_START_FROM}_test.json")
 
-    @patch("zero_migrations.backup.os.listdir")
+    @patch("zero_migrations.utils.os.listdir")
     def test_new_revision_with_files_in_dir(self, mock_listdir):
         mock_listdir.return_value = ["0001_test.json", "0002_test.json"]
 
         self.assertEqual(str(self.backup_file.next_revision), "0003_test.json")
 
-    @patch("zero_migrations.backup.os.listdir")
+    @patch("zero_migrations.utils.os.listdir")
     def test_new_file_path_without_any_file_in_dir(self, mock_listdir):
         mock_listdir.return_value = []
 
@@ -55,7 +57,7 @@ class TestBackupFile(TestCase):
             str(self.backup_file.backup_dir_path / f"{BackupFile.REVISION_START_FROM}_test.json")
         )
 
-    @patch("zero_migrations.backup.os.listdir")
+    @patch("zero_migrations.utils.os.listdir")
     def test_new_file_path_with_files_in_dir(self, mock_listdir):
         mock_listdir.return_value = ["0001_test.json", "0002_test.json"]
 
@@ -99,11 +101,14 @@ class TestBackupFile(TestCase):
 
 class TestBackupMigrations(TestCase):
 
+    def setUp(self) -> None:
+        self.backup_handler = MigrationBackup()
+
     def test_get_migrations_data_from_db(self):
         migration_1 = MigrationRecorder.Migration.objects.create(app="test1", name="test1")
         migration_2 = MigrationRecorder.Migration.objects.create(app="test2", name="test2")
 
-        migrations = MigrationBackup.get_migrations_data_from_db()
+        migrations = self.backup_handler.get_migrations_data_from_db()
 
         self.assertEqual(migrations[0]["id"], migration_1.id)
         self.assertEqual(migrations[0]["app"], migration_1.app)
@@ -115,7 +120,30 @@ class TestBackupMigrations(TestCase):
         self.assertEqual(migrations[1]["name"], migration_2.name)
         self.assertEqual(migrations[1]["applied"], migration_2.applied)
 
-    @patch("zero_migrations.backup.BackupFile.read")
+    @patch("zero_migrations.utils.backup.MigrationBackup.get_migrations_data_from_db")
+    def test_backup_with_invalid_backup_raise_error(self, mock_get_migration_data):
+        mock_get_migration_data.return_value = [
+            {
+                "id": 1,
+                "app": "test",
+                "name": "test",
+                "applied": now()
+            }
+        ]
+
+        MigrationRecorder.Migration.objects.create(app="test1", name="test1")
+        MigrationRecorder.Migration.objects.create(app="test2", name="test2")
+
+        with self.assertRaises(BackupError):
+            self.backup_handler.backup()
+
+
+class TestRestoreMigrations(TestCase):
+
+    def setUp(self) -> None:
+        self.restore_handler = MigrationRestore()
+
+    @patch("zero_migrations.utils.BackupFile.read")
     def test_get_migrations_data_from_backup(self, mock_read):
         mock_read.return_value = [
             {
@@ -132,8 +160,38 @@ class TestBackupMigrations(TestCase):
             }
         ]
 
-        migrations = MigrationBackup().get_migrations_data_from_backup()
+        migrations = self.restore_handler.get_migrations_data_from_backup()
 
+        self.assertEqual(migrations[0].id, 1)
+        self.assertEqual(migrations[0].app, "test")
+        self.assertEqual(migrations[0].name, "test")
+
+        self.assertEqual(migrations[1].id, 2)
+        self.assertEqual(migrations[1].app, "test1")
+        self.assertEqual(migrations[1].name, "test1")
+
+    @patch("zero_migrations.utils.BackupFile.read")
+    def test_restore_data_from_backup_success(self, mock_read):
+        mock_read.return_value = [
+            {
+                "id": 1,
+                "app": "test",
+                "name": "test",
+                "applied": now()
+            },
+            {
+                "id": 2,
+                "app": "test1",
+                "name": "test1",
+                "applied": now()
+            }
+        ]
+
+        self.restore_handler.restore()
+
+        migrations = MigrationRecorder.Migration.objects.all()
+
+        self.assertEqual(migrations.count(), 2)
         self.assertEqual(migrations[0].id, 1)
         self.assertEqual(migrations[0].app, "test")
         self.assertEqual(migrations[0].name, "test")

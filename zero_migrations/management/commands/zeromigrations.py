@@ -1,6 +1,6 @@
 from django.core.management import BaseCommand
 
-from zero_migrations.backup import MigrationBackup
+from zero_migrations.utils.backup import MigrationBackup
 
 
 class Command(BaseCommand):

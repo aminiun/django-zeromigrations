@@ -1,12 +1,11 @@
-import abc
 import json
 import os
 from datetime import datetime, date
 from pathlib import Path
 
-from django.db import transaction
-from django.db.migrations.recorder import MigrationRecorder
 from typing import NoReturn, List
+
+from django.db.migrations.recorder import MigrationRecorder
 
 Migration = MigrationRecorder.Migration
 
@@ -85,49 +84,4 @@ class BackupFile:
 
     @property
     def app_dir_path(self):
-        return Path(__file__).parent
-
-
-class BaseBackup(abc.ABC):
-
-    @abc.abstractmethod
-    def save(self):
-        raise NotImplementedError
-
-
-class MigrationBackup(BaseBackup):
-
-    BACKUP_FILE_NAME = "backup_migrations_table.json"
-
-    def __init__(self):
-        self.file_handler = BackupFile(dir_name="migrations", file_name=self.BACKUP_FILE_NAME)
-
-    def save(self):
-        migrations_data = self.get_migrations_data_from_db()
-        self.file_handler.write(data=migrations_data)
-
-    @staticmethod
-    def get_migrations_data_from_db() -> List[dict]:
-        all_migrations = Migration.objects.iterator()
-        data = []
-        for migration in all_migrations:
-            data.append(
-                {field.name: getattr(migration, field.name, None) for field in migration._meta.fields}
-            )
-        return data
-
-    @transaction.atomic
-    def load(self):
-        backup_migrations = self.get_migrations_data_from_backup()
-        Migration.objects.all().delete()
-        Migration.objects.bulk_create(backup_migrations)
-
-    def get_migrations_data_from_backup(self) -> List[Migration]:
-        migrations_data = self.file_handler.read()
-        backup_migrations = []
-        for migration in migrations_data:
-            backup_migrations.append(
-                Migration(**migration)
-            )
-
-        return backup_migrations
+        return Path(__file__).parent.parent
