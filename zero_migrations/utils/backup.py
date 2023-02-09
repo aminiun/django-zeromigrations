@@ -2,13 +2,13 @@ import abc
 from typing import List, NoReturn
 
 from django.apps import apps
-from django.db.migrations.loader import MigrationLoader
 
-from zero_migrations.constants import MIGRATION_TABLE_BACKUP_FILE_NAME, \
-    MIGRATION_TABLE_BACKUP_DIR_NAME, \
+from .. import app_settings
+from ..constants import MIGRATION_TABLE_BACKUP_FILE_NAME,\
+    MIGRATION_TABLE_BACKUP_DIR_NAME,\
     MIGRATION_FILES_BACKUP_DIR_NAME
-from zero_migrations.exceptions import BackupError
-from zero_migrations.utils import BackupFile, Migration, BackupDirectory
+from ..exceptions import BackupError
+from ..utils import BackupFile, Migration, BackupDir, AppMigrationsDir
 
 
 class BaseBackup(abc.ABC):
@@ -21,7 +21,7 @@ class BaseBackup(abc.ABC):
 class MigrationsTableBackup(BaseBackup):
 
     def __init__(self):
-        backup_directory = BackupDirectory(MIGRATION_TABLE_BACKUP_DIR_NAME)
+        backup_directory = BackupDir(MIGRATION_TABLE_BACKUP_DIR_NAME)
         self.file_handler = BackupFile(
             directory=backup_directory,
             file_name=MIGRATION_TABLE_BACKUP_FILE_NAME
@@ -38,7 +38,8 @@ class MigrationsTableBackup(BaseBackup):
         data = []
         for migration in all_migrations:
             data.append(
-                {field.name: getattr(migration, field.name, None) for field in migration._meta.fields}
+                {field.name: getattr(migration, field.name, None)
+                 for field in migration._meta.fields}
             )
         return data
 
@@ -55,12 +56,15 @@ class MigrationsTableBackup(BaseBackup):
 
 class MigrationFilesBackup(BaseBackup):
 
-    def __init__(self):
-        self.backup_directory = BackupDirectory(MIGRATION_TABLE_BACKUP_DIR_NAME)
-
     def backup(self):
-        MigrationLoader.get_migration(MIGRATION_FILES_BACKUP_DIR_NAME)
+        for app in apps.get_app_configs():
+            if app.name in app_settings.IGNORE_APPS:
+                continue
 
-    @property
-    def app_migrations_dir_path(self, app_name: str):
-        return apps.get_app_config(app_name).path
+            app_migrations_dir = AppMigrationsDir(app_name=app.name)
+            migrations_backup_dir = BackupDir(MIGRATION_FILES_BACKUP_DIR_NAME, app.name)
+
+            if not app_migrations_dir.has_migration:
+                continue
+
+            app_migrations_dir.copy(destination=migrations_backup_dir.path)

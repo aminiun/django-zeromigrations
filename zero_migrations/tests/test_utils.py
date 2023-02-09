@@ -3,14 +3,49 @@ from pathlib import Path
 from shutil import rmtree
 from unittest.mock import patch
 
+from django.db.migrations.loader import MIGRATIONS_MODULE_NAME
 from django.db.migrations.recorder import MigrationRecorder
 from django.test import TestCase
 from django.utils.timezone import now
 
-from zero_migrations.exceptions import BackupError
-from zero_migrations.utils import BackupDirectory
-from zero_migrations.utils.backup import BackupFile, MigrationsTableBackup, MigrationFilesBackup
-from zero_migrations.utils.restore import MigrationsTableRestore
+from ..apps import ZeroMigrationsConfig
+from ..exceptions import BackupError
+from ..utils import BackupDir
+from ..utils.backup import BackupFile, MigrationsTableBackup, MigrationFilesBackup, AppMigrationsDir
+from ..utils.restore import MigrationsTableRestore
+
+
+class TestBackupDir(TestCase):
+
+    def setUp(self) -> None:
+        self.test_backup_dir_name = "test"
+        self.backup_dir = BackupDir(self.test_backup_dir_name)
+
+    def test_path(self):
+        self.assertEqual(
+            str(self.backup_dir.path),
+            str(Path(__file__).parent.parent / BackupDir.BACKUP_DIR_NAME / self.test_backup_dir_name)
+        )
+
+    @patch("zero_migrations.utils.os.listdir")
+    def test_get_files_with_postfix(self, mock_listdir):
+        mock_listdir.return_value = ["0001_sth.json", "0002_test.json"]
+
+        files = self.backup_dir.get_files_with_postfix(postfix="test.json")
+        self.assertEqual(files, ["0002_test.json"])
+
+
+class TestAppMigrationsDir(TestCase):
+
+    def setUp(self) -> None:
+        self.test_app_name = ZeroMigrationsConfig.name
+        self.migrations_dir = AppMigrationsDir(self.test_app_name)
+
+    def test_path(self):
+        self.assertEqual(
+            str(self.migrations_dir.path),
+            str(Path(__file__).parent.parent / MIGRATIONS_MODULE_NAME)
+        )
 
 
 class TestBackupFile(TestCase):
@@ -18,14 +53,8 @@ class TestBackupFile(TestCase):
     def setUp(self) -> None:
         self.test_backup_dir_name = "test"
 
-        self.backup_dir = BackupDirectory(self.test_backup_dir_name)
+        self.backup_dir = BackupDir(self.test_backup_dir_name)
         self.backup_file = BackupFile(directory=self.backup_dir, file_name="test.json")
-
-    def test_backup_dir(self):
-        self.assertEqual(
-            str(self.backup_dir.path),
-            str(Path(__file__).parent.parent / BackupDirectory.BACKUP_DIR_NAME / self.test_backup_dir_name)
-        )
 
     @patch("zero_migrations.utils.os.listdir")
     def test_latest_revision_without_any_file_in_dir(self, mock_listdir):
@@ -202,42 +231,3 @@ class TestRestoreMigrationsTable(TestCase):
         self.assertEqual(migrations[1].id, 2)
         self.assertEqual(migrations[1].app, "test1")
         self.assertEqual(migrations[1].name, "test1")
-
-
-class TestBackupMigrationFiles(TestCase):
-
-    def setUp(self) -> None:
-        self.backup_handler = MigrationFilesBackup()
-
-    def test_get_migrations_data_from_db(self):
-        migration_1 = MigrationRecorder.Migration.objects.create(app="test1", name="test1")
-        migration_2 = MigrationRecorder.Migration.objects.create(app="test2", name="test2")
-
-        migrations = self.backup_handler.get_migrations_data_from_db()
-
-        self.assertEqual(migrations[0]["id"], migration_1.id)
-        self.assertEqual(migrations[0]["app"], migration_1.app)
-        self.assertEqual(migrations[0]["name"], migration_1.name)
-        self.assertEqual(migrations[0]["applied"], migration_1.applied)
-
-        self.assertEqual(migrations[1]["id"], migration_2.id)
-        self.assertEqual(migrations[1]["app"], migration_2.app)
-        self.assertEqual(migrations[1]["name"], migration_2.name)
-        self.assertEqual(migrations[1]["applied"], migration_2.applied)
-
-    @patch("zero_migrations.utils.backup.MigrationsTableBackup.get_migrations_data_from_db")
-    def test_backup_with_invalid_backup_raise_error(self, mock_get_migration_data):
-        mock_get_migration_data.return_value = [
-            {
-                "id": 1,
-                "app": "test",
-                "name": "test",
-                "applied": now()
-            }
-        ]
-
-        MigrationRecorder.Migration.objects.create(app="test1", name="test1")
-        MigrationRecorder.Migration.objects.create(app="test2", name="test2")
-
-        with self.assertRaises(BackupError):
-            self.backup_handler.backup()

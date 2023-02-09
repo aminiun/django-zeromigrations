@@ -1,34 +1,50 @@
+import abc
 import json
 import os
 from datetime import datetime, date
 from pathlib import Path
-from shutil import rmtree
+from shutil import rmtree, copytree
 
-from typing import NoReturn, List, Optional
+from typing import NoReturn, List, Optional, Union
 
 from django.apps import apps
+from django.db.migrations.loader import MIGRATIONS_MODULE_NAME
 from django.db.migrations.recorder import MigrationRecorder
 
-from zero_migrations.apps import ZeroMigrationsConfig
+from ..apps import ZeroMigrationsConfig
 
 Migration = MigrationRecorder.Migration
 
 
-class BackupDirectory:
+class BaseDir(abc.ABC):
+
+    def create(self) -> NoReturn:
+        Path(self.path).mkdir(parents=True, exist_ok=True)
+
+    def copy(self, destination: Union[Path, str]) -> NoReturn:
+        copytree(self.path, destination, dirs_exist_ok=True)
+
+    def get_files(self) -> List[str]:
+        return os.listdir(self.path)
+
+    @property
+    @abc.abstractmethod
+    def path(self):
+        raise NotImplementedError
+
+
+class BackupDir(BaseDir):
     BACKUP_DIR_NAME = "backups"
 
     def __init__(self, *dir_names):
         self._dir_names = dir_names
-
-    def create(self) -> NoReturn:
-        Path(self.path).mkdir(parents=True, exist_ok=True)
 
     def clear(self) -> NoReturn:
         rmtree(self.path, ignore_errors=True)
 
     def get_files_with_postfix(self, postfix: str = "") -> List[str]:
         return [
-            str(dir_) for dir_ in os.listdir(self.path)
+            str(dir_) for dir_ in self.get_files()
             if str(dir_).endswith(postfix)
         ]
 
@@ -41,11 +57,25 @@ class BackupDirectory:
         return Path(apps.get_app_config(ZeroMigrationsConfig.name).path)
 
 
+class AppMigrationsDir(BaseDir):
+
+    def __init__(self, app_name: str):
+        self.app_name = app_name
+
+    @property
+    def path(self) -> Path:
+        return Path(apps.get_app_config(app_label=self.app_name).path) / MIGRATIONS_MODULE_NAME
+
+    @property
+    def has_migration(self) -> bool:
+        return any(file[0] not in '_~' for file in self.get_files())
+
+
 class BackupFile:
 
     REVISION_START_FROM = "0001"
 
-    def __init__(self, directory: BackupDirectory, file_name: str):
+    def __init__(self, directory: BackupDir, file_name: str):
         self._file_name = file_name
         self.backup_dir = directory
 

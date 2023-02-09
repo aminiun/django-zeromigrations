@@ -1,10 +1,13 @@
 import abc
 
+from django.apps import apps
 from django.db import transaction
 from typing import List
 
-from zero_migrations.constants import MIGRATION_TABLE_BACKUP_DIR_NAME, MIGRATION_TABLE_BACKUP_FILE_NAME
-from zero_migrations.utils import BackupFile, Migration, BackupDirectory
+from .. import app_settings
+from ..constants import MIGRATION_TABLE_BACKUP_DIR_NAME, MIGRATION_TABLE_BACKUP_FILE_NAME, \
+    MIGRATION_FILES_BACKUP_DIR_NAME
+from ..utils import BackupFile, Migration, BackupDir, AppMigrationsDir
 
 
 class BaseRestore(abc.ABC):
@@ -17,7 +20,7 @@ class BaseRestore(abc.ABC):
 class MigrationsTableRestore(BaseRestore):
 
     def __init__(self):
-        backup_dir = BackupDirectory(MIGRATION_TABLE_BACKUP_DIR_NAME)
+        backup_dir = BackupDir(MIGRATION_TABLE_BACKUP_DIR_NAME)
         self.file_handler = BackupFile(
             directory=backup_dir,
             file_name=MIGRATION_TABLE_BACKUP_FILE_NAME
@@ -38,3 +41,19 @@ class MigrationsTableRestore(BaseRestore):
             )
 
         return backup_migrations
+
+
+class MigrationFilesRestore(BaseRestore):
+
+    def restore(self):
+        for app in apps.get_app_configs():
+            if app.name in app_settings.IGNORE_APPS:
+                continue
+
+            app_migrations_dir = AppMigrationsDir(app_name=app.name)
+            migrations_backup_dir = BackupDir(MIGRATION_FILES_BACKUP_DIR_NAME, app.name)
+
+            if not app_migrations_dir.has_migration:
+                continue
+
+            migrations_backup_dir.copy(destination=app_migrations_dir.path)
