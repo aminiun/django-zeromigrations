@@ -4,7 +4,7 @@ from django.db import transaction
 from typing import List
 
 from zero_migrations.constants import MIGRATION_TABLE_BACKUP_DIR_NAME, MIGRATION_TABLE_BACKUP_FILE_NAME
-from zero_migrations.utils import BackupFile, Migration
+from zero_migrations.utils import BackupFile, Migration, BackupDirectory
 
 
 class BaseRestore(abc.ABC):
@@ -14,11 +14,12 @@ class BaseRestore(abc.ABC):
         raise NotImplementedError
 
 
-class MigrationRestore(BaseRestore):
+class MigrationsTableRestore(BaseRestore):
 
     def __init__(self):
+        backup_dir = BackupDirectory(MIGRATION_TABLE_BACKUP_DIR_NAME)
         self.file_handler = BackupFile(
-            dir_name=MIGRATION_TABLE_BACKUP_DIR_NAME,
+            directory=backup_dir,
             file_name=MIGRATION_TABLE_BACKUP_FILE_NAME
         )
 

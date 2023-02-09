@@ -8,20 +8,23 @@ from django.test import TestCase
 from django.utils.timezone import now
 
 from zero_migrations.exceptions import BackupError
-from zero_migrations.utils.backup import BackupFile, MigrationBackup
-from zero_migrations.utils.restore import MigrationRestore
+from zero_migrations.utils import BackupDirectory
+from zero_migrations.utils.backup import BackupFile, MigrationsTableBackup, MigrationFilesBackup
+from zero_migrations.utils.restore import MigrationsTableRestore
 
 
 class TestBackupFile(TestCase):
 
     def setUp(self) -> None:
         self.test_backup_dir_name = "test"
-        self.backup_file = BackupFile(dir_name=self.test_backup_dir_name, file_name="test.json")
+
+        self.backup_dir = BackupDirectory(self.test_backup_dir_name)
+        self.backup_file = BackupFile(directory=self.backup_dir, file_name="test.json")
 
     def test_backup_dir(self):
         self.assertEqual(
-            str(self.backup_file.backup_dir_path),
-            str(Path(__file__).parent.parent / BackupFile.BACKUP_DIR_NAME / self.test_backup_dir_name)
+            str(self.backup_dir.path),
+            str(Path(__file__).parent.parent / BackupDirectory.BACKUP_DIR_NAME / self.test_backup_dir_name)
         )
 
     @patch("zero_migrations.utils.os.listdir")
@@ -54,7 +57,7 @@ class TestBackupFile(TestCase):
 
         self.assertEqual(
             str(self.backup_file.new_file_path),
-            str(self.backup_file.backup_dir_path / f"{BackupFile.REVISION_START_FROM}_test.json")
+            str(self.backup_dir.path / f"{BackupFile.REVISION_START_FROM}_test.json")
         )
 
     @patch("zero_migrations.utils.os.listdir")
@@ -63,7 +66,7 @@ class TestBackupFile(TestCase):
 
         self.assertEqual(
             str(self.backup_file.new_file_path),
-            str(self.backup_file.backup_dir_path / "0003_test.json")
+            str(self.backup_dir.path / "0003_test.json")
         )
 
     def test_write_data(self):
@@ -96,13 +99,13 @@ class TestBackupFile(TestCase):
         self.assertTrue(isinstance(written_data[1]["applied"], datetime))
 
     def tearDown(self) -> None:
-        rmtree(self.backup_file.backup_dir_path, ignore_errors=True)
+        rmtree(self.backup_dir.path, ignore_errors=True)
 
 
-class TestBackupMigrations(TestCase):
+class TestBackupMigrationsTable(TestCase):
 
     def setUp(self) -> None:
-        self.backup_handler = MigrationBackup()
+        self.backup_handler = MigrationsTableBackup()
 
     def test_get_migrations_data_from_db(self):
         migration_1 = MigrationRecorder.Migration.objects.create(app="test1", name="test1")
@@ -120,7 +123,7 @@ class TestBackupMigrations(TestCase):
         self.assertEqual(migrations[1]["name"], migration_2.name)
         self.assertEqual(migrations[1]["applied"], migration_2.applied)
 
-    @patch("zero_migrations.utils.backup.MigrationBackup.get_migrations_data_from_db")
+    @patch("zero_migrations.utils.backup.MigrationsTableBackup.get_migrations_data_from_db")
     def test_backup_with_invalid_backup_raise_error(self, mock_get_migration_data):
         mock_get_migration_data.return_value = [
             {
@@ -138,10 +141,10 @@ class TestBackupMigrations(TestCase):
             self.backup_handler.backup()
 
 
-class TestRestoreMigrations(TestCase):
+class TestRestoreMigrationsTable(TestCase):
 
     def setUp(self) -> None:
-        self.restore_handler = MigrationRestore()
+        self.restore_handler = MigrationsTableRestore()
 
     @patch("zero_migrations.utils.BackupFile.read")
     def test_get_migrations_data_from_backup(self, mock_read):
@@ -199,3 +202,42 @@ class TestRestoreMigrations(TestCase):
         self.assertEqual(migrations[1].id, 2)
         self.assertEqual(migrations[1].app, "test1")
         self.assertEqual(migrations[1].name, "test1")
+
+
+class TestBackupMigrationFiles(TestCase):
+
+    def setUp(self) -> None:
+        self.backup_handler = MigrationFilesBackup()
+
+    def test_get_migrations_data_from_db(self):
+        migration_1 = MigrationRecorder.Migration.objects.create(app="test1", name="test1")
+        migration_2 = MigrationRecorder.Migration.objects.create(app="test2", name="test2")
+
+        migrations = self.backup_handler.get_migrations_data_from_db()
+
+        self.assertEqual(migrations[0]["id"], migration_1.id)
+        self.assertEqual(migrations[0]["app"], migration_1.app)
+        self.assertEqual(migrations[0]["name"], migration_1.name)
+        self.assertEqual(migrations[0]["applied"], migration_1.applied)
+
+        self.assertEqual(migrations[1]["id"], migration_2.id)
+        self.assertEqual(migrations[1]["app"], migration_2.app)
+        self.assertEqual(migrations[1]["name"], migration_2.name)
+        self.assertEqual(migrations[1]["applied"], migration_2.applied)
+
+    @patch("zero_migrations.utils.backup.MigrationsTableBackup.get_migrations_data_from_db")
+    def test_backup_with_invalid_backup_raise_error(self, mock_get_migration_data):
+        mock_get_migration_data.return_value = [
+            {
+                "id": 1,
+                "app": "test",
+                "name": "test",
+                "applied": now()
+            }
+        ]
+
+        MigrationRecorder.Migration.objects.create(app="test1", name="test1")
+        MigrationRecorder.Migration.objects.create(app="test2", name="test2")
+
+        with self.assertRaises(BackupError):
+            self.backup_handler.backup()

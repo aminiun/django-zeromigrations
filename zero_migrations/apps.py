@@ -1,5 +1,5 @@
 from django.apps import AppConfig
 
 
-class WalletsConfig(AppConfig):
+class ZeroMigrationsConfig(AppConfig):
     name = "zero_migrations"
