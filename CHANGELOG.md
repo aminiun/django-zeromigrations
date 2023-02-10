@@ -1,6 +1,11 @@
 # Changelog
 
-## [0.1.1] - 2023-02-11
+## [0.1.2] - 2023-02-10
+### Fixed
+- Ignore third-party apps in the process.
+
+
+## [0.1.1] - 2023-02-10
 ### Fixed
 - Print an error when there is no backup in restoring process.
 
