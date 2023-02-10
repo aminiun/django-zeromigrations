@@ -1,5 +1,10 @@
 # Changelog
 
+## [0.1.3] - 2023-02-10
+### Fixed
+- `long_description_content_type` in setup.cfg fixed.
+
+
 ## [0.1.2] - 2023-02-10
 ### Fixed
 - Ignore third-party apps in the process.
