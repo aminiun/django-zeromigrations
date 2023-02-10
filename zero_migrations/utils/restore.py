@@ -1,7 +1,7 @@
 import abc
 
 from django.db import transaction
-from typing import List
+from typing import List, NoReturn
 
 from ..constants import MIGRATION_TABLE_BACKUP_DIR_NAME, MIGRATION_TABLE_BACKUP_FILE_NAME, \
     MIGRATION_FILES_BACKUP_DIR_NAME
@@ -25,7 +25,7 @@ class MigrationsTableRestore(BaseRestore):
         )
 
     @transaction.atomic
-    def restore(self):
+    def restore(self) -> NoReturn:
         backup_migrations = self.get_migrations_data_from_backup()
         Migration.objects.all().delete()
         Migration.objects.bulk_create(backup_migrations)
@@ -48,7 +48,7 @@ class MigrationFilesRestore(BaseRestore):
         self.app_migrations_dir = AppMigrationsDir(app_name=app_name)
         self.migrations_backup_dir = BackupDir(MIGRATION_FILES_BACKUP_DIR_NAME, app_name)
 
-    def restore(self):
+    def restore(self) -> NoReturn:
         if not self.app_migrations_dir.has_migration:
             return
 

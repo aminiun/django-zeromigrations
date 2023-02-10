@@ -1,5 +1,5 @@
 import site
-from typing import List
+from typing import List, NoReturn
 from functools import lru_cache
 
 from django.apps import apps
@@ -11,7 +11,7 @@ from zero_migrations.utils.restore import MigrationFilesRestore, MigrationsTable
 
 
 class Command(BaseCommand):
-    help = "Fake zero migrations"
+    help = "zeromigrations command to set migration files zero."
 
     MAKE_BACKUP = 1
     RESTORE_LAST_BACKUP = 2
@@ -19,9 +19,6 @@ class Command(BaseCommand):
 
     DELETE_MIGRATION_FILES = 1
     KEEP_MIGRATION_FILES = 2
-
-    def add_arguments(self, parser):
-        pass
 
     def handle(self, *args, **options):
         choice = int(input(
@@ -40,7 +37,11 @@ class Command(BaseCommand):
         if choice == self.PROCEED:
             self.zero_migrations()
 
-    def make_backup(self):
+    def make_backup(self) -> NoReturn:
+        """
+        Making a backup for django_migrations table and migration files in each app.
+        These backups will be used if any failure happened in zero_migrations process.
+        """
         MigrationsTableBackup().backup()
 
         for app in self.get_apps():
@@ -50,13 +51,22 @@ class Command(BaseCommand):
             self.style.SUCCESS(
                 "Backup made successfully!.\n"
                 f"Backups are in: {BackupDir().path}.\n"
-                f"Shall I proceed ? (y/n) "
+                f"Shall I set migrations zero now? (y/n) "
             )
         )
         if proceed_perm == "y":
             self.zero_migrations()
 
     def zero_migrations(self):
+        """
+        Settings migrations zero.
+        This process includes of 4 steps:
+            1- Running `migrate --fake {app_name} zero` for each app
+            2- Removing migrations files.
+            3- Running `makemigrations` to make new initial migrations.
+            4- Running `migrate --fake-initial` to fake made initial migrations.
+        In case of any failure, it tries to restore the latest backup.
+        """
         try:
             self.stdout.write(self.style.WARNING("Migrate zero each app:"))
             for app in self.get_apps():
@@ -83,6 +93,14 @@ class Command(BaseCommand):
             self.restore()
 
     def restore(self):
+        """
+        Restoring the latest backup, if any failure has happened or the user wants to do it itself.
+        First django_migrations table would be restored and after that, migrations files would be restored.
+        For migration files restoring, user has to decide whether his/her current migrations files
+            should be deleted or not. If he/her decided not to delete his/her current migration files,
+            then backup files would be replaced
+        Note that backup data would be clear after restoring.
+        """
         self.stdout.write(
             self.style.WARNING("Restoring ...")
         )
@@ -114,6 +132,12 @@ class Command(BaseCommand):
 
     @lru_cache
     def get_apps(self) -> List[str]:
+        """
+        Get all user django apps.
+        Apps that have been installed and are not written by user, would be excluded. This is because we don't want to
+            set third-party packages migrations zero.
+        :return: List of user apps names.
+        """
         installed_app_path = site.getsitepackages()[0]
         return [
             app.name for app in apps.get_app_configs()

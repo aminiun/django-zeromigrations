@@ -58,7 +58,7 @@ class MigrationFilesBackup(BaseBackup):
         self.app_migrations_dir = AppMigrationsDir(app_name=app_name)
         self.migrations_backup_dir = BackupDir(MIGRATION_FILES_BACKUP_DIR_NAME, app_name)
 
-    def backup(self):
+    def backup(self) -> NoReturn:
         if not self.app_migrations_dir.has_migration:
             return
 
