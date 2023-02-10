@@ -10,7 +10,7 @@ It basically runs 4 command:
 3. `makemigrations` to generate initial migration file.
 4. `migrate --fake-initial` to fake generated initial files.
 
-##### But besides that, this command can make a _backup_ to _restore_ in case of any failure.
+#### But besides that, this command can make a _backup_ to _restore_ in case of any failure.
 
 **Note** that `migrate --fake` command only runs for your own apps and django apps like `contenttype` and third-party apps are excluded. 
 
