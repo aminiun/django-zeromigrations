@@ -6,10 +6,10 @@ time. As a result, running them can consume a lot of time, specifically
 when you are running your tests.
 
 ``zeromigrations`` is a command to reset migration files (**I SUGGEST
-NOT TO CALL IT ON PRODUCTION**). It basically runs 4 command:
+NOT TO RUN IT ON PRODUCTION**). It basically runs 4 commands:
 
-1. ``migrate --fake {app_name} zero`` for each app
-2. Remove old migration files, As new migrations is going to be
+1. ``migrate --fake {app_name} zero`` for each app.
+2. Remove old migration files, as new migrations is going to be
    generated.
 3. ``makemigrations`` to generate initial migration file.
 4. ``migrate --fake-initial`` to fake generated initial files.
@@ -46,7 +46,7 @@ Usage
 
 First, run the command:
 
-.. code:: bash
+.. code::
 
     python manage.py zeromigrations
 
