@@ -22,7 +22,7 @@ pip install django-zeromigrations
 -----
 ## Usage
 First, run the command:
-```shell
+```
 python manage.py zeromigrations
 
 I suggest to make a backups from both your migrations and django_migrations table (just in case).
