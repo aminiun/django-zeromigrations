@@ -7,12 +7,13 @@ from django.db.migrations.loader import MIGRATIONS_MODULE_NAME
 from django.db.migrations.recorder import MigrationRecorder
 from django.test import TestCase
 from django.utils.timezone import now
+from django.conf import settings
 
-from ..apps import ZeroMigrationsConfig
-from ..exceptions import BackupError
-from ..utils import BackupDir
-from ..utils.backup import BackupFile, MigrationsTableBackup, AppMigrationsDir
-from ..utils.restore import MigrationsTableRestore
+from zero_migrations.apps import ZeroMigrationsConfig
+from zero_migrations.exceptions import BackupError
+from zero_migrations.utils import BackupDir
+from zero_migrations.utils.backup import BackupFile, MigrationsTableBackup, AppMigrationsDir
+from zero_migrations.utils.restore import MigrationsTableRestore
 
 
 class TestBackupDir(TestCase):
@@ -24,7 +25,7 @@ class TestBackupDir(TestCase):
     def test_path(self):
         self.assertEqual(
             str(self.backup_dir.path),
-            str(Path(__file__).parent.parent / BackupDir.BACKUP_DIR_NAME / self.test_backup_dir_name)
+            str(Path(settings.BASE_DIR) / BackupDir.BACKUP_DIR_NAME / self.test_backup_dir_name)
         )
 
     @patch("zero_migrations.utils.os.listdir")
@@ -44,7 +45,7 @@ class TestAppMigrationsDir(TestCase):
     def test_path(self):
         self.assertEqual(
             str(self.migrations_dir.path),
-            str(Path(__file__).parent.parent / MIGRATIONS_MODULE_NAME)
+            str(Path(settings.BASE_DIR) / MIGRATIONS_MODULE_NAME)
         )
 
 
@@ -135,6 +136,7 @@ class TestBackupMigrationsTable(TestCase):
 
     def setUp(self) -> None:
         self.backup_handler = MigrationsTableBackup()
+        MigrationRecorder.Migration.objects.all().delete()
 
     def test_get_migrations_data_from_db(self):
         migration_1 = MigrationRecorder.Migration.objects.create(app="test1", name="test1")
