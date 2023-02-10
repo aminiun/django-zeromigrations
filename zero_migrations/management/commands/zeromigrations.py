@@ -1,10 +1,10 @@
+import site
+from typing import List
 from functools import lru_cache
 
 from django.apps import apps
 from django.core.management import BaseCommand, call_command
-from typing import List
 
-from zero_migrations.app_settings import IGNORE_APPS
 from zero_migrations.utils import BackupDir, AppMigrationsDir
 from zero_migrations.utils.backup import MigrationsTableBackup, MigrationFilesBackup
 from zero_migrations.utils.restore import MigrationFilesRestore, MigrationsTableRestore
@@ -100,13 +100,22 @@ class Command(BaseCommand):
         delete_migrations = True if choice == self.DELETE_MIGRATION_FILES else False
         for app in self.get_apps():
             migration_files_restore = MigrationFilesRestore(app_name=app)
-            if delete_migrations:
-                migration_files_restore.app_migrations_dir.clear()
-            migration_files_restore.restore()
+            if migration_files_restore.migrations_backup_dir.has_migration:
+                if delete_migrations:
+                    migration_files_restore.app_migrations_dir.clear()
+                migration_files_restore.restore()
+            else:
+                self.stdout.write(
+                    self.style.ERROR(
+                        f"Couldn't find any backup for app {app} in"
+                        f"{migration_files_restore.migrations_backup_dir.path}."
+                    )
+                )
 
     @lru_cache
     def get_apps(self) -> List[str]:
+        installed_app_path = site.getsitepackages()[0]
         return [
             app.name for app in apps.get_app_configs()
-            if app.name not in IGNORE_APPS
+            if not str(app.path).startswith(str(installed_app_path))
         ]

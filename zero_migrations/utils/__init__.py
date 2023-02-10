@@ -25,6 +25,10 @@ class BaseDir(abc.ABC):
     def copy(self, destination: Union[Path, str]) -> NoReturn:
         copytree(self.path, destination, dirs_exist_ok=True)
 
+    @property
+    def has_migration(self) -> bool:
+        return any(file[0] not in '_~' for file in self.get_files())
+
     def get_files(self) -> List[str]:
         try:
             return os.listdir(self.path)
@@ -76,10 +80,6 @@ class AppMigrationsDir(BaseDir):
     @lru_cache
     def path(self) -> Path:
         return Path(apps.get_app_config(app_label=self.app_name).path) / MIGRATIONS_MODULE_NAME
-
-    @property
-    def has_migration(self) -> bool:
-        return any(file[0] not in '_~' for file in self.get_files())
 
 
 class BackupFile:
