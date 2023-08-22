@@ -49,8 +49,5 @@ class MigrationFilesRestore(BaseRestore):
         self.migrations_backup_dir = BackupDir(MIGRATION_FILES_BACKUP_DIR_NAME, app_name)
 
     def restore(self) -> NoReturn:
-        if not self.app_migrations_dir.has_migration:
-            return
-
         self.migrations_backup_dir.copy(destination=self.app_migrations_dir.path)
         self.migrations_backup_dir.clear()

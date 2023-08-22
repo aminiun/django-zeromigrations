@@ -108,14 +108,14 @@ class Command(BaseCommand):
         self.stdout.write(
             self.style.SUCCESS("django_migrations table restored.")
         )
-        choice = input(
+        choice = int(input(
             self.style.WARNING(
                 "Trying to restore migration file.\n"
                 f"1- Delete my current migration files and restore.\n"
                 f"2- Keep my current migration files and replace restore.\n"
             )
-        )
-        delete_migrations = True if choice == self.DELETE_MIGRATION_FILES else False
+        ))
+        delete_migrations = choice == self.DELETE_MIGRATION_FILES
         for app in self.get_apps():
             migration_files_restore = MigrationFilesRestore(app_name=app)
             if migration_files_restore.migrations_backup_dir.has_migration:
