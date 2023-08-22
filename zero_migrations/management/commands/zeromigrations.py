@@ -81,6 +81,9 @@ class Command(BaseCommand):
             self.stdout.write(self.style.WARNING("Making migrations:"))
             call_command("makemigrations", force_color=True)
 
+            for app in self.get_apps():
+                AppMigrationsDir(app_name=app).reload()
+
             self.stdout.write(self.style.WARNING("Migrate with fake initial:"))
             call_command("migrate", "--fake-initial", force_color=True)
 

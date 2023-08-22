@@ -1,8 +1,10 @@
 import abc
 import json
 import os
+import sys
 from datetime import datetime, date
 from functools import lru_cache
+from importlib import reload, import_module
 from pathlib import Path
 from shutil import rmtree, copytree
 
@@ -119,6 +121,16 @@ class AppMigrationsDir(BaseDir):
         for file_name in self.get_files():
             if file_name != "__init__.py" and file_name.endswith(".py"):
                 os.remove(self.path / file_name)
+
+    def reload(self):
+        """
+        Reloads the migrations of the app.
+        """
+        for file_name in self.get_files():
+            if file_name.endswith(".py"):
+                module_name = f"{self.app_name}.migrations.{file_name[:-3]}"
+                if module_name in sys.modules:
+                    reload(import_module(module_name))
 
     @property
     @lru_cache
