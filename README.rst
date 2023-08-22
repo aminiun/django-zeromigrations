@@ -1,12 +1,11 @@
-Django Zero Migrations
+Django Zero Migrations (Reset Migrations)
 ======================
 
 As the project grows up, the number of migration files increases over
 time. As a result, running them can consume a lot of time, specifically
 when you are running your tests.
 
-``zeromigrations`` is a command to reset migration files (**I SUGGEST
-NOT TO RUN IT ON PRODUCTION**). It basically runs 4 commands:
+``zeromigrations`` is a command to reset migration files. It basically runs 4 commands:
 
 1. ``migrate --fake {app_name} zero`` for each app.
 2. Remove old migration files, as new migrations is going to be
