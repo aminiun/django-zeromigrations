@@ -51,10 +51,10 @@ class Command(BaseCommand):
             self.style.SUCCESS(
                 "Backup made successfully!.\n"
                 f"Backups are in: {BackupDir().path}.\n"
-                f"Shall I set migrations zero now? (y/n) "
+                f"Shall I set migrations zero now? (Y/n) "
             )
-        )
-        if proceed_perm == "y":
+        ) or "Y"
+        if proceed_perm.lower() == "y":
             self.zero_migrations()
 
     def zero_migrations(self):
@@ -85,7 +85,7 @@ class Command(BaseCommand):
                 AppMigrationsDir(app_name=app).reload()
 
             self.stdout.write(self.style.WARNING("Migrate with fake initial:"))
-            call_command("migrate", "--fake-initial", force_color=True)
+            call_command("migrate", "--fake", force_color=True)
 
         except Exception as err:
             self.stderr.write(
