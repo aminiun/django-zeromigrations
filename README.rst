@@ -1,5 +1,5 @@
 Django Zero Migrations (Reset Migrations)
-======================
+=========================================
 
 As the project grows up, the number of migration files increases over
 time. As a result, running them can consume a lot of time, specifically
