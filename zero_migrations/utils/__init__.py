@@ -1,4 +1,5 @@
 import abc
+import argparse
 import json
 import os
 import sys
@@ -71,6 +72,12 @@ class BackupDir(BaseDir):
     BACKUP_DIR_NAME = "backups"
 
     def __init__(self, *dir_names):
+        if len(sys.argv) > 3:
+            parser = argparse.ArgumentParser()
+            backup_path = parser.parse_args(['--backup-path'])
+            self._base_path = backup_path[:-1] if backup_path.endswith("/") else backup_path
+        else:
+            self._base_path = self.app_dir_path / self.BACKUP_DIR_NAME
         self._dir_names = dir_names
 
     def clear(self) -> NoReturn:
@@ -99,7 +106,7 @@ class BackupDir(BaseDir):
     @property
     @lru_cache
     def path(self) -> Path:
-        return self.app_dir_path / self.BACKUP_DIR_NAME / Path(*self._dir_names)
+        return self._base_path / Path(*self._dir_names)
 
     @property
     def app_dir_path(self) -> Path:

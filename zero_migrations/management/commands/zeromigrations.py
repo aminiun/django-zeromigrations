@@ -20,6 +20,12 @@ class Command(BaseCommand):
     DELETE_MIGRATION_FILES = 1
     KEEP_MIGRATION_FILES = 2
 
+    def add_arguments(self, parser):
+        parser.add_argument(
+            "--backup-path",
+            help="Backup path to save backup files in it.",
+        )
+
     def handle(self, *args, **options):
         choice = int(input(
             self.style.WARNING(
