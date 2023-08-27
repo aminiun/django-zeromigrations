@@ -72,13 +72,17 @@ class BackupDir(BaseDir):
     BACKUP_DIR_NAME = "backups"
 
     def __init__(self, *dir_names):
-        if len(sys.argv) > 3:
-            parser = argparse.ArgumentParser()
-            backup_path = parser.parse_args(['--backup-path'])
-            self._base_path = backup_path[:-1] if backup_path.endswith("/") else backup_path
-        else:
-            self._base_path = self.app_dir_path / self.BACKUP_DIR_NAME
+        self._base_path = self._extract_backup_path()
         self._dir_names = dir_names
+
+    def _extract_backup_path(self) -> Path:
+        if len(sys.argv) == 4:
+            return Path(sys.argv[3]) / self.BACKUP_DIR_NAME
+
+        if len(sys.argv) == 3:
+            return Path(sys.argv[2].split("=")[1]) / self.BACKUP_DIR_NAME
+
+        return self.app_dir_path / self.BACKUP_DIR_NAME
 
     def clear(self) -> NoReturn:
         """

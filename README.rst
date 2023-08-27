@@ -47,7 +47,7 @@ First, run the command:
 
 .. code::
 
-    python manage.py zeromigrations
+    python manage.py zeromigrations --backup-path=<YOUR_PATH>
 
     I suggest to make a backups from both your migrations and django_migrations table (just in case).
     1- make backup
