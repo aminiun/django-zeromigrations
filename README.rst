@@ -66,5 +66,5 @@ own backup and start setting migrations zero.
 
 Options
 -------
-- `--backup-path`: The absolute path of the dir that you want to store backups in. It should have `--backup-path=<PATH>` format. The default path is inside of zeromigrations app dir.
-- `--use-fake-zero`: By default, deleting migrations records from DB happens directly using ORM. With this flag, you can set to use `python3 manage.py migrate app --fake zero` (note that it has performance issue).
+- ``--backup-path``: The absolute path of the dir that you want to store backups in. It should have `--backup-path=<PATH>` format. The default path is inside of zeromigrations app dir.
+- ``--use-fake-zero``: By default, deleting migrations records from DB happens directly using ORM. With this flag, you can set to use `python3 manage.py migrate app --fake zero` (note that it has performance issue).
