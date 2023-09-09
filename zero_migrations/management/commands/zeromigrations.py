@@ -1,11 +1,10 @@
-import site
 from typing import List, NoReturn
 from functools import lru_cache
 
 from django.apps import apps
 from django.core.management import BaseCommand, call_command
 
-from zero_migrations.utils import BackupDir, AppMigrationsDir
+from zero_migrations.utils import BackupDir, AppMigrationsDir, Migration
 from zero_migrations.utils.backup import MigrationsTableBackup, MigrationFilesBackup
 from zero_migrations.utils.restore import MigrationFilesRestore, MigrationsTableRestore
 
@@ -25,8 +24,16 @@ class Command(BaseCommand):
             "--backup-path",
             help="Backup path to save backup files in it.",
         )
+        parser.add_argument(
+            "--use-fake-zero",
+            action="store_true",
+            required=False,
+            help="Use django --fake zero command for migration deletion from DB.",
+        )
 
     def handle(self, *args, **options):
+        use_fake_zero = options.get("use-fake-zero")
+
         choice = int(input(
             self.style.WARNING(
                 "I suggest to make a backups from both your "
@@ -41,7 +48,7 @@ class Command(BaseCommand):
         if choice == self.RESTORE_LAST_BACKUP:
             self.restore()
         if choice == self.PROCEED:
-            self.zero_migrations()
+            self.zero_migrations(use_fake_zero=use_fake_zero)
 
     def make_backup(self) -> NoReturn:
         """
@@ -63,7 +70,7 @@ class Command(BaseCommand):
         if proceed_perm.lower() == "y":
             self.zero_migrations()
 
-    def zero_migrations(self):
+    def zero_migrations(self, use_fake_zero=None):
         """
         Settings migrations zero.
         This process includes of 4 steps:
@@ -77,7 +84,10 @@ class Command(BaseCommand):
             self.stdout.write(self.style.WARNING("Migrate zero each app:"))
             for app in self.get_apps():
                 self.stdout.write(self.style.WARNING(f"App name: {app}"))
-                call_command("migrate", "--fake", app, "zero", force_color=True)
+                if use_fake_zero:
+                    call_command("migrate", "--fake", app, "zero", force_color=True)
+                else:
+                    Migration.objects.filter(app=app).delete()
 
             self.stdout.write(self.style.WARNING("Removing migrations:"))
             for app in self.get_apps():
@@ -147,8 +157,6 @@ class Command(BaseCommand):
             set third-party packages migrations zero.
         :return: List of user apps names.
         """
-        installed_app_path = site.getsitepackages()[0]
         return [
-            app.name for app in apps.get_app_configs()
-            if not str(app.path).startswith(str(installed_app_path))
+            app.name.split(".")[-1] for app in apps.get_app_configs()
         ]

@@ -1,5 +1,4 @@
 import abc
-import argparse
 import json
 import os
 import sys
@@ -76,11 +75,9 @@ class BackupDir(BaseDir):
         self._dir_names = dir_names
 
     def _extract_backup_path(self) -> Path:
-        if len(sys.argv) == 4:
-            return Path(sys.argv[3]) / self.BACKUP_DIR_NAME
-
-        if len(sys.argv) == 3:
-            return Path(sys.argv[2].split("=")[1]) / self.BACKUP_DIR_NAME
+        for arg in sys.argv:
+            if arg.startswith("--backup-path"):
+                return Path(arg.split("=")[1]) / self.BACKUP_DIR_NAME
 
         return self.app_dir_path / self.BACKUP_DIR_NAME
 
