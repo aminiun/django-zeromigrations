@@ -1,3 +1,4 @@
+import site
 from typing import List, NoReturn
 from functools import lru_cache
 
@@ -57,7 +58,7 @@ class Command(BaseCommand):
         """
         MigrationsTableBackup().backup()
 
-        for app in self.get_apps():
+        for app in self.get_local_apps():
             MigrationFilesBackup(app_name=app).backup()
 
         proceed_perm = input(
@@ -82,7 +83,7 @@ class Command(BaseCommand):
         """
         try:
             self.stdout.write(self.style.WARNING("Migrate zero each app:"))
-            for app in self.get_apps():
+            for app in self.get_all_apps():
                 self.stdout.write(self.style.WARNING(f"App name: {app}"))
                 if use_fake_zero:
                     call_command("migrate", "--fake", app, "zero", force_color=True)
@@ -90,14 +91,14 @@ class Command(BaseCommand):
                     Migration.objects.filter(app=app).delete()
 
             self.stdout.write(self.style.WARNING("Removing migrations:"))
-            for app in self.get_apps():
+            for app in self.get_local_apps():
                 AppMigrationsDir(app_name=app).clear()
                 self.stdout.write(self.style.SUCCESS(f"Removed migrations of {app}"))
 
             self.stdout.write(self.style.WARNING("Making migrations:"))
             call_command("makemigrations", force_color=True)
 
-            for app in self.get_apps():
+            for app in self.get_local_apps():
                 AppMigrationsDir(app_name=app).reload()
 
             self.stdout.write(self.style.WARNING("Migrate with fake initial:"))
@@ -135,7 +136,7 @@ class Command(BaseCommand):
             )
         ))
         delete_migrations = choice == self.DELETE_MIGRATION_FILES
-        for app in self.get_apps():
+        for app in self.get_local_apps():
             migration_files_restore = MigrationFilesRestore(app_name=app)
             if migration_files_restore.migrations_backup_dir.has_migration:
                 if delete_migrations:
@@ -150,12 +151,23 @@ class Command(BaseCommand):
                 )
 
     @lru_cache
-    def get_apps(self) -> List[str]:
+    def get_local_apps(self) -> List[str]:
         """
         Get all user django apps.
         Apps that have been installed and are not written by user, would be excluded. This is because we don't want to
             set third-party packages migrations zero.
         :return: List of user apps names.
+        """
+        installed_app_path = site.getsitepackages()[0]
+        return [
+            app.name for app in apps.get_app_configs()
+            if not str(app.path).startswith(str(installed_app_path))
+        ]
+
+    @lru_cache
+    def get_all_apps(self) -> List[str]:
+        """
+        Get all django apps, including admin, auth, ...
         """
         return [
             app.name.split(".")[-1] for app in apps.get_app_configs()
